@@ -56,18 +56,27 @@ def main(applicant_id: int | None, dataset: str = "german"):
 
     # 3. Solve Counterfactuals
     print("[3/4] Solving counterfactuals via Baseline (Unconstrained) vs FairRecourse (PCL)...")
-    base_gen = UnconstrainedBaselineRecourse(risk_model.calibrated_model, X_train, list(X_train.columns))
-    fair_gen = ConstrainedRecourseGenerator(risk_model.calibrated_model, X_train, list(X_train.columns))
+    pcl = PolicyAndConstraintLayer()
+    evaluator = RecourseEvaluator()
 
+    base_gen = UnconstrainedBaselineRecourse(risk_model.calibrated_model, X_train, list(X_train.columns))
+    fair_gen = ConstrainedRecourseGenerator(risk_model.calibrated_model, X_train, list(X_train.columns), dataset_name=dataset)
     base_raw = base_gen.generate(instance, total_cfs=1)
-    fair_raw = fair_gen.generate(instance, total_cfs=1)
+    fair_raw = fair_gen.generate(instance, pcl=pcl, total_cfs=1,evaluator=evaluator)
 
     if fair_raw is None or fair_raw.empty:
         print("\n" + "=" * 80)
         print(f"AUDIT ASSESSMENT: RECOURSE MATHEMATICALLY INFEASIBLE FOR APPLICANT #{applicant_id}")
         print("=" * 80)
         print(f"Calibrated Default Risk: {prob * 100:.2f}% (Threshold: 40.0%)")
-        print("No actionable counterfactual path satisfies constraints within realistic bounds.")
+        print("\nPRIMARY ADVERSE DETERMINATION DRIVERS (TreeSHAP Root Cause Analysis):")
+        print("-" * 80)
+        for driver in top_drivers:
+            feature = driver.get("feature", driver.get("column", "Unknown"))
+            impact = driver.get("attribution", driver.get("shap_value", 0.0))
+            print(f"  • {feature:<35} : +{impact:.4f} margin [Increases Default Risk]")
+        print("-" * 80)
+        print("Recourse Assessment: Levers within permitted scope cannot offset these base bureau anchors.")
         print("Action: Escalate to credit committee for manual discretionary underwriting.")
         print("=" * 80 + "\n")
         return
@@ -75,19 +84,19 @@ def main(applicant_id: int | None, dataset: str = "german"):
     base_cf = base_raw.iloc[0].drop(labels=["target"], errors="ignore")
     fair_cf = fair_raw.iloc[0].drop(labels=["target"], errors="ignore")
 
-    # 4. Audit Both with PCL & Cost Evaluator
-    pcl = PolicyAndConstraintLayer()
-    evaluator = RecourseEvaluator()
-
     _, viol_base = pcl.validate(base_series, base_cf)
     eval_base = evaluator.evaluate(base_series, base_cf, viol_base)
 
     _, viol_fair = pcl.validate(base_series, fair_cf)
     eval_fair = evaluator.evaluate(base_series, fair_cf, viol_fair)
 
-    # 5. Stability Assessment
+# 5. Stability Assessment
+    cf_df = fair_raw.drop(columns=["target"], errors="ignore")
     stability_res = ModelMonitor.evaluate_recourse_stability(
-        risk_model, pd.DataFrame([fair_cf]), threshold=0.40
+        risk_model.calibrated_model,
+        cf_df,
+        original_instance=instance,
+        threshold=0.40,
     )
 
     # 6. Render Comparative Output
