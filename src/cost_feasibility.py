@@ -17,6 +17,11 @@ class RecourseEvaluator:
         delta_savings = max(0.0, float(candidate.get("savings_balance", 0.0)) - float(baseline.get("savings_balance", 0.0)))
         delta_debt_paydown = max(0.0, float(baseline.get("revolving_debt", 0.0)) - float(candidate.get("revolving_debt", 0.0)))
         total_financial_shift = delta_savings + delta_debt_paydown
+        # --- 4-LINE ADDITION ---
+        for col in ["NetFractionInstallBurden", "NetFractionRevolvingBurden", "CC_utilization"]:
+         if col in baseline.index:
+          pct_drop = max(0.0, float(baseline.get(col, 0.0)) - float(candidate.get(col, 0.0)))
+          total_financial_shift += pct_drop * 100.0  # 1% drop = $100 paydown
 
         months_required = (total_financial_shift / monthly_budget) if monthly_budget > 0 else 99.0
         months_required = round(max(1.0, months_required), 1)

@@ -1,4 +1,6 @@
 import pandas as pd
+import json
+import os
 
 
 class PolicyAndConstraintLayer:
@@ -7,21 +9,27 @@ class PolicyAndConstraintLayer:
     immutability, and boundary rules across German Credit and HELOC.
     """
 
-    # Features that can never change
-    IMMUTABLE_KEYWORDS = [
-        "age", "sex", "gender", "personal_status", "foreign_worker",
-        "msince", "averageminfile", "history", "delqever"
-    ]
+    def __init__(self, config_path=None, immutable_features=None, adverse_metrics=None, positive_metrics=None):
+        if config_path is None:
+            config_path = os.path.join(os.path.dirname(__file__), "..", "config", "default_schema.json")
+            
+        try:
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+            self.immutable_keywords = config.get("IMMUTABLE_KEYWORDS", [])
+            self.adverse_metrics = config.get("ADVERSE_METRICS", [])
+            self.positive_metrics = config.get("POSITIVE_METRICS", [])
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.immutable_keywords = []
+            self.adverse_metrics = []
+            self.positive_metrics = []
 
-    # Metrics where higher value = MORE risk (must NOT increase)
-    ADVERSE_METRICS = [
-        "burden", "debt", "inq", "derog", "highutil", "util"
-    ]
-
-    # Metrics where higher value = LESS risk (must NOT decrease)
-    POSITIVE_METRICS = [
-        "savings", "percenttradesneverdelq", "clean", "asset"
-    ]
+        if immutable_features is not None:
+            self.immutable_keywords = immutable_features
+        if adverse_metrics is not None:
+            self.adverse_metrics = adverse_metrics
+        if positive_metrics is not None:
+            self.positive_metrics = positive_metrics
 
     def validate(self, original_profile: pd.Series, counterfactual_profile: pd.Series) -> tuple[bool, list[str]]:
         violations = []
@@ -44,17 +52,17 @@ class PolicyAndConstraintLayer:
             col_lower = col.lower()
 
             # 1. Immutability Check
-            if any(k in col_lower for k in self.IMMUTABLE_KEYWORDS):
+            if any(k in col_lower for k in self.immutable_keywords):
                 if abs(new_val - old_val) > 1e-4:
                     violations.append(f"Immutability violation: Cannot alter historical/demographic feature {col} ({old_val:.2f} -> {new_val:.2f}).")
 
             # 2. Positive Credit Quality Metrics (Must NOT decrease)
-            elif any(k in col_lower for k in self.POSITIVE_METRICS):
+            elif any(k in col_lower for k in self.positive_metrics):
                 if new_val < old_val - 1e-4:
                     violations.append(f"Monotonicity violation: Quality metric {col} cannot decrease ({old_val:.2f} -> {new_val:.2f}).")
 
             # 3. Adverse Risk Metrics & Specific Delinquencies (Must NOT increase)
-            elif any(k in col_lower for k in self.ADVERSE_METRICS) or ("delq" in col_lower and "never" not in col_lower):
+            elif any(k in col_lower for k in self.adverse_metrics) or ("delq" in col_lower and "never" not in col_lower):
                 if new_val > old_val + 1e-4:
                     violations.append(f"Monotonicity violation: Adverse risk metric {col} cannot increase ({old_val:.2f} -> {new_val:.2f}).")
 

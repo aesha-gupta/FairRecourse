@@ -1,0 +1,72 @@
+{
+    "ACTIONABLE_CONFIGS": {
+        "heloc": {
+            "NetFractionRevolvingBurden": {
+                "direction": "decrease",
+                "step": 5.0,
+                "min": 0.0
+            },
+            "NetFractionInstallBurden": {
+                "direction": "decrease",
+                "step": 10.0,
+                "min": 0.0
+            }
+        },
+        "german": {
+            "savings_balance": {
+                "direction": "increase",
+                "step": 500.0,
+                "max_add": 3000.0
+            },
+            "duration_months": {
+                "direction": "decrease",
+                "step": 6.0,
+                "min": 6.0
+            },
+            "credit_amount": {
+                "direction": "decrease",
+                "step": 500.0,
+                "min": 250.0
+            }
+        },
+        "cibil": {
+            "CC_utilization": {
+                "direction": "decrease",
+                "step": 5.0,
+                "min": 0.0
+            }
+        }
+    },
+    "IMMUTABLE_KEYWORDS": [
+        "age",
+        "sex",
+        "gender",
+        "personal_status",
+        "foreign_worker",
+        "msince",
+        "averageminfile",
+        "history",
+        "delqever",
+        "prospectid",
+        "enq",
+        "inq",
+        "delinquency",
+        "delinquent",
+        "num_std",
+        "tl_active"
+    ],
+    "ADVERSE_METRICS": [
+        "burden",
+        "debt",
+        "derog",
+        "highutil",
+        "util"
+    ],
+    "POSITIVE_METRICS": [
+        "savings",
+        "percenttradesneverdelq",
+        "clean",
+        "asset",
+        "income"
+    ]
+}

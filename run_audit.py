@@ -1,6 +1,6 @@
 import argparse
 import pandas as pd
-from src.data_loader import load_and_preprocess_german_credit, load_and_preprocess_heloc
+from src.data_loader import load_and_preprocess_german_credit, load_and_preprocess_heloc, load_and_preprocess_cibil
 from src.model import CalibratedRiskModel
 from src.explain import ExplainerEngine
 from src.recourse import ConstrainedRecourseGenerator
@@ -21,6 +21,9 @@ def main(applicant_id: int | None, dataset: str = "german"):
     if dataset.lower() == "heloc":
         X_train, X_test, y_train, y_test, _, _ = load_and_preprocess_heloc()
         monitor_feature = "NetFractionRevolvingBurden"
+    elif dataset.lower() == "cibil":
+        X_train, X_test, y_train, y_test, _, _ = load_and_preprocess_cibil()
+        monitor_feature = "CC_utilization"
     else:
         X_train, X_test, y_train, y_test, _, _ = load_and_preprocess_german_credit()
         monitor_feature = "savings_balance"
@@ -135,6 +138,6 @@ def main(applicant_id: int | None, dataset: str = "german"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run recourse audit")
     parser.add_argument("--applicant_id", type=int, default=None, help="Applicant index")
-    parser.add_argument("--dataset", type=str, default="german", choices=["german", "heloc"], help="Dataset to audit")
+    parser.add_argument("--dataset", type=str, default="german", choices=["german", "heloc", "cibil"], help="Dataset to audit")
     args = parser.parse_args()
     main(args.applicant_id, dataset=args.dataset)

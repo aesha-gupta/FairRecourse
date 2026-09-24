@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import json
+import os
 
 
 class BufferedRiskModelWrapper:
@@ -24,18 +26,6 @@ class BufferedRiskModelWrapper:
 class ConstrainedRecourseGenerator:
     """Dataset-scoped recourse generator preventing cross-dataset contamination."""
 
-    DEFAULT_ACTIONABLE_CONFIGS = {
-        "heloc": {
-            "NetFractionRevolvingBurden": {"direction": "decrease", "step": 5.0, "min": 0.0},
-            "NetFractionInstallBurden": {"direction": "decrease", "step": 10.0, "min": 0.0},
-        },
-        "german": {
-            "savings_balance": {"direction": "increase", "step": 500.0, "max_add": 3000.0},
-            "duration_months": {"direction": "decrease", "step": 6.0, "min": 6.0},
-            "credit_amount": {"direction": "decrease", "step": 500.0, "min": 250.0},
-        },
-    }
-
     def __init__(
         self,
         model,
@@ -44,6 +34,7 @@ class ConstrainedRecourseGenerator:
         dataset_name: str = "heloc",
         operational_threshold: float = 0.40,
         safety_margin: float = 0.05,
+        config_path: str = None,
         **kwargs,
     ):
         self.raw_model = model
@@ -52,6 +43,16 @@ class ConstrainedRecourseGenerator:
         self.dataset_name = dataset_name.lower()
         self.operational_threshold = operational_threshold
 
+        if config_path is None:
+            config_path = os.path.join(os.path.dirname(__file__), "..", "config", "default_schema.json")
+            
+        try:
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+            self.actionable_configs = config.get("ACTIONABLE_CONFIGS", {})
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.actionable_configs = {}
+
         # Compute distributional MAD for scaling costs and normalized steps
         numeric_cols = list(train_dataset.select_dtypes(include=[np.number]).columns)
         medians = train_dataset[numeric_cols].median()
@@ -59,12 +60,12 @@ class ConstrainedRecourseGenerator:
         self.mads = self.mads.replace(0.0, 1.0)
 
         # Set actionable levers based on dataset config
-        cfg = self.DEFAULT_ACTIONABLE_CONFIGS.get(self.dataset_name, {})
+        cfg = self.actionable_configs.get(self.dataset_name, {})
         self.actionable_features = [f for f in cfg.keys() if f in self.feature_names]
         self.allowed_levers = self.actionable_features
 
     def _get_search_axis(self, feature: str, cur_val: float, steps: int = 5) -> np.ndarray:
-        cfg = self.DEFAULT_ACTIONABLE_CONFIGS.get(self.dataset_name, {}).get(feature, {})
+        cfg = self.actionable_configs.get(self.dataset_name, {}).get(feature, {})
         direction = cfg.get("direction", "decrease")
         step = cfg.get("step", 5.0)
 
@@ -88,12 +89,17 @@ class ConstrainedRecourseGenerator:
         max_active_levers: int = 2,
         grid_resolution: int = 5,
         max_horizon_months: float = 24.0,
+        allowed_features: list[str] | None = None,  # <-- 1. Added parameter
         **kwargs,
     ) -> pd.DataFrame | None:
         base_series = query_instance.iloc[0]
         active_candidates = [
             f for f in self.actionable_features if f in query_instance.columns
         ]
+
+        # <-- 2. Added filter: restricts search space if a pathway is specified
+        if allowed_features is not None:
+            active_candidates = [f for f in active_candidates if f in allowed_features]
 
         if not active_candidates:
             return None

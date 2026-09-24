@@ -1,0 +1,1 @@
+"""FairRecourse package init."""

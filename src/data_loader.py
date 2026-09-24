@@ -114,15 +114,97 @@ def load_and_preprocess_heloc(test_size: float = 0.2, random_state: int = 42):
     df["risk_tier"] = df[ext_col].apply(lambda s: "Higher_Score_Tier" if s >= median_score else "Lower_Score_Tier")
 
     revol_col = "NetFractionRevolvingBurden" if "NetFractionRevolvingBurden" in df.columns else df.columns[1]
-    df["monthly_income"] = 4500.0
-    df["disposable_income"] = 1200.0
-    df["savings_balance"] = 1500.0
+    
+    np.random.seed(random_state)
+    # Risk-correlated income generation (ExternalRiskEstimate is typically 50-90)
+    base_income = 1500.0 + (df[ext_col] * 40.0)
+    df["monthly_income"] = np.round(np.clip(base_income + np.random.normal(0, 500, size=len(df)), 1500.0, 15000.0), 2)
+    df["disposable_income"] = np.round(df["monthly_income"] * np.random.uniform(0.2, 0.4, size=len(df)), 2)
+    df["savings_balance"] = np.round(np.clip(df["monthly_income"] * np.random.uniform(0.1, 1.5, size=len(df)), 100.0, 20000.0), 2)
+    
     df["duration_months"] = 36.0
     df["revolving_debt"] = np.round(df[revol_col] * 35.0, 2)
 
     X = df[[c for c in df.columns if c not in ["target", "risk_tier"]]]
     y = df["target"]
     A = df[["risk_tier"]]
+
+    return train_test_split(
+        X, y, A, test_size=test_size, random_state=random_state, stratify=y
+    )
+
+
+def load_and_preprocess_cibil(test_size: float = 0.2, random_state: int = 42):
+    """Loads and prepares the External CIBIL dataset for Indian credit audits."""
+    target_path = "External_Cibil_Dataset.xlsx"
+    if not os.path.exists(target_path):
+        raise FileNotFoundError(f"Could not find {target_path}")
+
+    print(f"      Loaded local dataset file: {target_path}")
+    df = pd.read_excel(target_path)
+
+    # Target mapping based on P1/P2/P3/P4
+    if "Approved_Flag" in df.columns:
+        df["target"] = df["Approved_Flag"].apply(lambda x: 0 if str(x) in ["P1", "P2"] else 1)
+        df = df.drop(columns=["Approved_Flag"])
+    else:
+        df["target"] = 0
+
+    if "PROSPECTID" in df.columns:
+        df = df.drop(columns=["PROSPECTID"])
+
+    # Replace bureau sentinel missing values (-99999) with 0
+    for col in df.columns:
+        if df[col].dtype in [np.float64, np.int64]:
+            df[col] = df[col].replace(-99999, 0.0)
+
+    cat_cols = df.select_dtypes(include=['object']).columns
+    df_cat = df[cat_cols].copy() 
+
+    if len(cat_cols) > 0:
+        df = pd.get_dummies(df, columns=cat_cols, drop_first=True)
+        for c in df.columns:
+            if df[c].dtype == bool:
+                df[c] = df[c].astype(float)
+
+    # Fairness group A
+    if "GENDER" in df_cat.columns:
+        df["gender"] = df_cat["GENDER"]
+    else:
+        df["gender"] = "Unknown"
+    A = df[["gender"]].copy()
+
+    # Create explicit copy of X to prevent SettingWithCopyWarning
+    X = df[[c for c in df.columns if c not in ["target", "gender", "Credit_Score"]]].copy()
+    y = df["target"]
+
+    X = X.fillna(0.0)
+
+    # Dynamic Financial Feature Augmentation
+    np.random.seed(random_state)
+    if "NETMONTHLYINCOME" in X.columns and (X["NETMONTHLYINCOME"] > 0).any():
+        X["monthly_income"] = X["NETMONTHLYINCOME"].replace(0.0, np.nan)
+        median_inc = X["monthly_income"].median()
+        X["monthly_income"] = X["monthly_income"].fillna(median_inc if not np.isnan(median_inc) else 25000.0)
+    else:
+        if "Credit_Score" in df.columns:
+            # Handle bureau scores clipped between 300 and 900
+            valid_score = df["Credit_Score"].replace(0.0, 600.0).clip(lower=300.0, upper=900.0)
+            base_income = 12000.0 + (valid_score * 50.0) # INR scaling
+        else:
+            base_income = 35000.0 * np.ones(len(X))
+        
+        income_noise = np.random.normal(0, 3000, size=len(X))
+        X["monthly_income"] = np.round(np.clip(base_income + income_noise, 10000.0, 200000.0), 2)
+
+    X["disposable_income"] = np.round(X["monthly_income"] * np.random.uniform(0.20, 0.40, size=len(X)), 2)
+    X["savings_balance"] = np.round(np.clip(X["monthly_income"] * np.random.uniform(0.10, 1.50, size=len(X)), 1000.0, 500000.0), 2)
+    X["duration_months"] = 36.0
+
+    if "CC_utilization" in X.columns:
+        X["revolving_debt"] = np.round(X["CC_utilization"] * 100.0, 2)
+    else:
+        X["revolving_debt"] = 5000.0
 
     return train_test_split(
         X, y, A, test_size=test_size, random_state=random_state, stratify=y
