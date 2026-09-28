@@ -9,7 +9,7 @@ from src.model import CalibratedRiskModel
 from src.explain import ExplainerEngine
 from src.recourse import ConstrainedRecourseGenerator
 from src.baseline import UnconstrainedBaselineRecourse
-from src.policy_layer import PolicyAndConstraintLayer
+from src.policy_layer import PolicyAndConstraintLayer, compute_exposure_counter_offer
 from src.cost_feasibility import RecourseEvaluator
 from src.certificate import generate_recourse_certificate
 from src.monitoring import ModelMonitor
@@ -17,7 +17,8 @@ from src.monitoring import ModelMonitor
 CONTRACTUAL_LEVERS = ["duration_months", "credit_amount", "installment_rate"]
 BALANCE_SHEET_LEVERS = [
     "savings_balance", "revolving_debt", "CC_utilization", 
-    "NetFractionRevolvingBurden", "NetFractionInstallBurden"
+    "NetFractionRevolvingBurden", "NetFractionInstallBurden",
+    "NumRevolvingTradesWBalance", "PL_utilization", "pct_currentBal_all_TL"
 ]
 
 def run_batch():
@@ -26,7 +27,7 @@ def run_batch():
     
     with open(report_path, "w", encoding="utf-8") as f:
         with redirect_stdout(f):
-            print("# Batch Audit Report: 15 Marginal Applicants per Dataset\n")
+            print("# Batch Audit Report: 30 Marginal Applicants per Dataset\n")
             
             currency_map = {"german": "\u20AC", "heloc": "$", "cibil": "\u20B9"}
             
@@ -60,8 +61,8 @@ def run_batch():
                 
                 print(f"Found {len(marginal_indices)} marginal borderline applicants!")
                 
-                # Take up to 15
-                selected_indices = marginal_indices[:15]
+                # Take up to 30
+                selected_indices = marginal_indices[:30]
                 if len(selected_indices) == 0:
                     print("No marginal applicants found for this dataset.")
                     continue
@@ -85,8 +86,8 @@ def run_batch():
                     top_drivers = explainer.explain_instance(instance, top_k=3).to_dict(orient="records")
                     
                     base_raw = base_gen.generate(instance, total_cfs=1)
-                    fair_raw_a = fair_gen.generate(instance, pcl=pcl, total_cfs=1, evaluator=evaluator, allowed_features=CONTRACTUAL_LEVERS)
-                    fair_raw_b = fair_gen.generate(instance, pcl=pcl, total_cfs=1, evaluator=evaluator, allowed_features=BALANCE_SHEET_LEVERS)
+                    fair_raw_a = fair_gen.generate(instance, pcl=pcl, total_cfs=1, evaluator=evaluator, allowed_features=CONTRACTUAL_LEVERS, max_active_levers=3)
+                    fair_raw_b = fair_gen.generate(instance, pcl=pcl, total_cfs=1, evaluator=evaluator, allowed_features=BALANCE_SHEET_LEVERS, max_active_levers=3)
                     
                     if (fair_raw_a is None or fair_raw_a.empty) and (fair_raw_b is None or fair_raw_b.empty):
                         print("AUDIT ASSESSMENT: RECOURSE MATHEMATICALLY INFEASIBLE")
@@ -95,7 +96,8 @@ def run_batch():
                             impact = driver.get("attribution", driver.get("shap_value", 0.0))
                             print(f"  • {feature:<35} : +{impact:.4f} margin [Increases Default Risk]")
                         print("Action: Escalate to credit committee.")
-                        continue
+                        counter_offer = compute_exposure_counter_offer(prob)
+                        print(f"-> EXPOSURE SCALING ANALYSIS: {counter_offer['statutory_notice']}")
                         
                     # Baseline evaluation
                     base_cf = base_raw.iloc[0].drop(labels=["target"], errors="ignore")
@@ -144,6 +146,11 @@ def run_batch():
                     stab_b = f"{stability_b['stability_rate']*100:.0f}%" if stability_b else "N/A"
                     print(f"{'Epsilon-Stability':<28} {'Not Evaluated':<18} {stab_a:<22} {stab_b}")
                     print("-" * 88)
+                    
+                    if eval_base["violations"]:
+                        print("BASELINE VIOLATIONS CAUGHT BY PCL:")
+                        for v in eval_base["violations"]:
+                            print(f"  [X] {v}")
                     
                     if eval_fair_a and eval_fair_a["feasible"]:
                         print("\n>>> [OPTION A: CONTRACTUAL RESTRUCTURING CERTIFICATE]")

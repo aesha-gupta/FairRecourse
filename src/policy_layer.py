@@ -77,3 +77,45 @@ class PolicyAndConstraintLayer:
                     violations.append(f"Domain bounds violation: {col} must be within [0, 100]%, received {new_val:.2f}%.")
 
         return (len(violations) == 0, violations)
+
+def compute_exposure_counter_offer(
+    calibrated_pd: float, 
+    operational_threshold: float = 0.40, 
+    min_viable_ratio: float = 0.80
+) -> dict:
+    """
+    Computes scale-invariant exposure scaling ratio alpha* = tau / PD.
+    Preserves institutional Expected Loss without requiring unobserved loan amounts.
+    """
+    if calibrated_pd <= operational_threshold:
+        return {
+            "eligible": True,
+            "scaling_ratio": 1.0,
+            "haircut_pct": 0.0,
+            "status": "APPROVED"
+        }
+
+    alpha = operational_threshold / calibrated_pd
+
+    if alpha >= min_viable_ratio:
+        haircut = round((1.0 - alpha) * 100, 2)
+        return {
+            "eligible": True,
+            "scaling_ratio": round(alpha, 4),
+            "haircut_pct": haircut,
+            "status": "OPTION_A_COUNTER_OFFER",
+            "statutory_notice": (
+                f"Approved under an Exposure Scaling Cap of {alpha*100:.1f}% "
+                f"({haircut}% facility limit haircut) preserving portfolio risk neutral tolerance."
+            )
+        }
+    else:
+        return {
+            "eligible": False,
+            "scaling_ratio": round(alpha, 4),
+            "status": "RECOURSE_INFEASIBLE_COMMITTEE_ESCALATION",
+            "statutory_notice": (
+                f"Required exposure reduction ({(1.0 - alpha)*100:.1f}%) exceeds viable "
+                f"contractual threshold ({int((1.0 - min_viable_ratio)*100)}%). Escalated to credit committee."
+            )
+        }

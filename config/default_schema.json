@@ -10,6 +10,11 @@
                 "direction": "decrease",
                 "step": 10.0,
                 "min": 0.0
+            },
+            "NumRevolvingTradesWBalance": {
+                "direction": "decrease",
+                "step": 1.0,
+                "min": 0.0
             }
         },
         "german": {
@@ -34,6 +39,16 @@
                 "direction": "decrease",
                 "step": 5.0,
                 "min": 0.0
+            },
+            "PL_utilization": {
+                "direction": "decrease",
+                "step": 5.0,
+                "min": 0.0
+            },
+            "pct_currentBal_all_TL": {
+                "direction": "decrease",
+                "step": 5.0,
+                "min": 0.0
             }
         }
     },
@@ -53,14 +68,28 @@
         "delinquency",
         "delinquent",
         "num_std",
-        "tl_active"
+        "tl_active",
+        "trades",
+        "satisfactory",
+        "openinlast",
+        "time_since",
+        "num_",
+        "recent",
+        "ever",
+        "max_",
+        "pct_opened_tls",
+        "months"
     ],
     "ADVERSE_METRICS": [
         "burden",
         "debt",
         "derog",
         "highutil",
-        "util"
+        "util",
+        "delq",
+        "deliq",
+        "lss",
+        "dbt"
     ],
     "POSITIVE_METRICS": [
         "savings",

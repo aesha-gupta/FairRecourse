@@ -112,6 +112,7 @@ class ConstrainedRecourseGenerator:
         mesh = np.array(np.meshgrid(*feature_axes)).T.reshape(-1, len(active_levers))
 
         valid_plans = []
+        min_pd_seen = 1.0
 
         for point in mesh:
             cand_series = base_series.copy()
@@ -145,6 +146,10 @@ class ConstrainedRecourseGenerator:
             probs = self.raw_model.predict_proba(batch)
             pd_scores = probs[:, 1] if probs.ndim == 2 else probs
 
+            base_pd = float(pd_scores[0])
+            if base_pd < min_pd_seen:
+                min_pd_seen = base_pd
+
             stability_rate = float(np.mean(pd_scores < self.operational_threshold))
 
             if stability_rate >= 0.85:
@@ -159,4 +164,5 @@ class ConstrainedRecourseGenerator:
             valid_plans.sort(key=lambda x: x[0])
             return valid_plans[0][2]
 
+        print(f"Lowest PD reached by solver: {min_pd_seen:.4f}")
         return None

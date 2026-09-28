@@ -5,7 +5,7 @@ from src.model import CalibratedRiskModel
 from src.explain import ExplainerEngine
 from src.recourse import ConstrainedRecourseGenerator
 from src.baseline import UnconstrainedBaselineRecourse
-from src.policy_layer import PolicyAndConstraintLayer
+from src.policy_layer import PolicyAndConstraintLayer, compute_exposure_counter_offer
 from src.cost_feasibility import RecourseEvaluator
 from src.certificate import generate_recourse_certificate
 from src.monitoring import ModelMonitor
@@ -14,7 +14,8 @@ from src.monitoring import ModelMonitor
 CONTRACTUAL_LEVERS = ["duration_months", "credit_amount", "installment_rate"]
 BALANCE_SHEET_LEVERS = [
     "savings_balance", "revolving_debt", "CC_utilization", 
-    "NetFractionRevolvingBurden", "NetFractionInstallBurden"
+    "NetFractionRevolvingBurden", "NetFractionInstallBurden",
+    "NumRevolvingTradesWBalance", "PL_utilization", "pct_currentBal_all_TL"
 ]
 
 
@@ -83,12 +84,12 @@ def main(applicant_id: int | None, dataset: str = "german"):
 
     # --- OPTION A: Contractual Levers (tenure, amount) ---
     fair_raw_a = fair_gen.generate(
-        instance, pcl=pcl, total_cfs=1, evaluator=evaluator, allowed_features=CONTRACTUAL_LEVERS
+        instance, pcl=pcl, total_cfs=1, evaluator=evaluator, allowed_features=CONTRACTUAL_LEVERS, max_active_levers=3
     )
 
     # --- OPTION B: Balance-Sheet Levers (savings, revolving debt, utilization) ---
     fair_raw_b = fair_gen.generate(
-        instance, pcl=pcl, total_cfs=1, evaluator=evaluator, allowed_features=BALANCE_SHEET_LEVERS
+        instance, pcl=pcl, total_cfs=1, evaluator=evaluator, allowed_features=BALANCE_SHEET_LEVERS, max_active_levers=3
     )
 
     # Deep Infeasibility check: If BOTH pathways fail, escalate to human committee
@@ -106,8 +107,9 @@ def main(applicant_id: int | None, dataset: str = "german"):
         print("-" * 80)
         print("Recourse Assessment: Levers within permitted scope cannot offset base bureau anchors.")
         print("Action: Escalate to credit committee for manual discretionary underwriting.")
+        counter_offer = compute_exposure_counter_offer(prob)
+        print(f"-> EXPOSURE SCALING ANALYSIS: {counter_offer['statutory_notice']}")
         print("=" * 80 + "\n")
-        return
 
     # Baseline evaluation
     base_cf = base_raw.iloc[0].drop(labels=["target"], errors="ignore")
