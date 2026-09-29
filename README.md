@@ -58,7 +58,10 @@ An exhaustive rule-engine that acts as a deterministic referee against optimizat
 When a borrower is deeply embedded in risk, altering continuous features is a mathematical dead-end (The Optimization Deadlock). Instead of issuing a hard rejection, FairRecourse dynamically computes the scale-invariant ratio $\alpha^* = \tau / PD_{calibrated}$ to automatically generate a **Basel III compliant facility limit haircut**. This preserves the bank's Expected Loss ($EL$) tolerance while offering the applicant a viable, reduced-exposure counter-offer.
 
 ### 3. Temporal Solvency & Epsilon-Stability
-FairRecourse does not just output abstract feature deltas. It translates percentage utilization drops into absolute dollar amounts by inferring the applicant's credit limit, evaluating whether the required cash-shift is feasible within a strictly enforced maximum Execution Horizon (e.g., $H \le 24$ months). Generated plans are stress-tested with stochastic Gaussian noise ($\epsilon$-stability) to ensure resilience against execution wobble.
+FairRecourse does not just output abstract feature deltas. It translates percentage utilization drops into absolute dollar amounts by dynamically inferring the applicant's credit limit (capped by retail guardrails, such as 6x monthly income). It evaluates whether the required cash-shift is feasible within a strictly enforced maximum Execution Horizon (e.g., $H \le 24$ months). Generated plans are stress-tested with stochastic Gaussian noise ($\epsilon$-stability) to ensure resilience against execution wobble.
+
+### 4. Empirical Rigor & Pipeline Hygiene
+To guarantee the validity of our benchmarks for academic peer-review, FairRecourse implements strict out-of-fold imputation. Statistical derivations and synthetic augmentations are computed strictly on the training distribution and mapped to the test set, guaranteeing zero data leakage. Furthermore, bureau missing-value sentinels (e.g., FICO's `-7` or `-8`) are semantically preserved (mapped to infinite time bounds rather than naive zeros), ensuring the risk engine does not penalize structurally safe profiles.
 
 ---
 

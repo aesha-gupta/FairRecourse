@@ -78,7 +78,8 @@
         "ever",
         "max_",
         "pct_opened_tls",
-        "months"
+        "monthssince",
+        "months_since"
     ],
     "ADVERSE_METRICS": [
         "burden",

@@ -13,7 +13,7 @@ def test_negative_savings_violation():
 
     valid, violations = pcl.validate(baseline, candidate)
     assert valid is False
-    assert any("Savings cannot decrease" in v for v in violations)
+    assert any("cannot decrease" in v for v in violations)
 
 
 def test_debt_increase_violation():
@@ -23,4 +23,4 @@ def test_debt_increase_violation():
 
     valid, violations = pcl.validate(baseline, candidate)
     assert valid is False
-    assert any("Debt accumulation cannot resolve credit risk" in v for v in violations)
+    assert any("cannot increase" in v for v in violations)

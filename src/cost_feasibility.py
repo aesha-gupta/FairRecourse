@@ -22,12 +22,19 @@ class RecourseEvaluator:
          if col in baseline.index:
           pct_drop = max(0.0, float(baseline.get(col, 0.0)) - float(candidate.get(col, 0.0)))
           # If revolving_debt exists, infer the limit to calculate true dollar cost
-          if "revolving_debt" in baseline.index and float(baseline.get(col, 1.0)) > 0:
-              inferred_limit = float(baseline.get("revolving_debt", 5000.0)) / (float(baseline.get(col, 1.0)) / 100.0)
-              inferred_limit = max(1000.0, inferred_limit)
+          utilization = float(baseline.get(col, 0.0)) / 100.0
+          revolving_debt = float(baseline.get("revolving_debt", 0.0))
+
+          if "revolving_debt" in baseline.index and utilization > 0.01 and revolving_debt > 0:
+              inferred_limit = revolving_debt / utilization
+              # Cap to avoid unrealistically large limits from tiny utilization values
+              inferred_limit = min(inferred_limit, 6.0 * monthly_income)
+              inferred_limit = max(inferred_limit, 500.0)
               total_financial_shift += (pct_drop / 100.0) * inferred_limit
           else:
-              total_financial_shift += pct_drop * 100.0  # Fallback
+              # Fallback
+              inferred_limit = 3.0 * monthly_income
+              total_financial_shift += (pct_drop / 100.0) * inferred_limit
 
         months_required = (total_financial_shift / monthly_budget) if monthly_budget > 0 else 99.0
         months_required = round(max(1.0, months_required), 1)

@@ -107,24 +107,11 @@ def load_and_preprocess_heloc(test_size: float = 0.2, random_state: int = 42):
     for col in df.columns:
         if col != "target":
             df[col] = pd.to_numeric(df[col], errors="coerce")
-            # FICO special negative values (-7, -8, -9) map to NaN to prevent semantic distortion
-            df[col] = df[col].apply(lambda v: np.nan if v < 0 else float(v))
-            df[col] = df[col].fillna(df[col].median())
-
-    ext_col = "ExternalRiskEstimate" if "ExternalRiskEstimate" in df.columns else df.columns[0]
-    revol_col = "NetFractionRevolvingBurden" if "NetFractionRevolvingBurden" in df.columns else df.columns[1]
-
-    revol_col = "NetFractionRevolvingBurden" if "NetFractionRevolvingBurden" in df.columns else df.columns[1]
-    
-    np.random.seed(random_state)
-    # Risk-correlated income generation (ExternalRiskEstimate is typically 50-90)
-    base_income = 1500.0 + (df[ext_col] * 40.0)
-    df["monthly_income"] = np.round(np.clip(base_income + np.random.normal(0, 500, size=len(df)), 1500.0, 15000.0), 2)
-    df["disposable_income"] = np.round(df["monthly_income"] * np.random.uniform(0.2, 0.4, size=len(df)), 2)
-    df["savings_balance"] = np.round(np.clip(df["monthly_income"] * np.random.uniform(0.1, 1.5, size=len(df)), 100.0, 20000.0), 2)
-    
-    df["duration_months"] = 36.0
-    df["revolving_debt"] = np.round(df[revol_col] * 35.0, 2)
+            # FICO special negative values (-7, -8, -9): map time-since features to 999.0, others to NaN
+            if "MSince" in col or "MonthsSince" in col:
+                df[col] = df[col].apply(lambda v: 999.0 if v < 0 else float(v))
+            else:
+                df[col] = df[col].apply(lambda v: np.nan if v < 0 else float(v))
 
     X = df[[c for c in df.columns if c not in ["target"]]]
     y = df["target"]
@@ -133,7 +120,26 @@ def load_and_preprocess_heloc(test_size: float = 0.2, random_state: int = 42):
         X, y, test_size=test_size, random_state=random_state, stratify=y
     )
 
-    # Apply post-split risk_tier to prevent data leakage
+    # Impute missing values with training medians to prevent leakage
+    for col in X_train.columns:
+        train_median = X_train[col].median()
+        X_train.loc[:, col] = X_train[col].fillna(train_median)
+        X_test.loc[:, col] = X_test[col].fillna(train_median)
+
+    ext_col = "ExternalRiskEstimate" if "ExternalRiskEstimate" in X_train.columns else X_train.columns[0]
+    revol_col = "NetFractionRevolvingBurden" if "NetFractionRevolvingBurden" in X_train.columns else X_train.columns[1]
+
+    # Generate synthetic features post-split
+    for _X in [X_train, X_test]:
+        np.random.seed(random_state)
+        base_income = 1500.0 + (_X[ext_col] * 40.0)
+        _X.loc[:, "monthly_income"] = np.round(np.clip(base_income + np.random.normal(0, 500, size=len(_X)), 1500.0, 15000.0), 2)
+        _X.loc[:, "disposable_income"] = np.round(_X["monthly_income"] * np.random.uniform(0.2, 0.4, size=len(_X)), 2)
+        _X.loc[:, "savings_balance"] = np.round(np.clip(_X["monthly_income"] * np.random.uniform(0.1, 1.5, size=len(_X)), 100.0, 20000.0), 2)
+        _X.loc[:, "duration_months"] = 36.0
+        _X.loc[:, "revolving_debt"] = np.round(_X[revol_col] * 35.0, 2)
+
+    # Apply post-split risk_tier
     train_median_score = X_train[ext_col].median()
     A_train = pd.DataFrame({"risk_tier": X_train[ext_col].apply(lambda s: "Higher_Score_Tier" if s >= train_median_score else "Lower_Score_Tier")}, index=X_train.index)
     A_test = pd.DataFrame({"risk_tier": X_test[ext_col].apply(lambda s: "Higher_Score_Tier" if s >= train_median_score else "Lower_Score_Tier")}, index=X_test.index)
@@ -195,9 +201,9 @@ def load_and_preprocess_cibil(test_size: float = 0.2, random_state: int = 42):
     for _X in [X_train, X_test]:
         np.random.seed(random_state)
         if "NETMONTHLYINCOME" in _X.columns and (_X["NETMONTHLYINCOME"] > 0).any():
-            _X["monthly_income"] = _X["NETMONTHLYINCOME"].replace(0.0, np.nan)
+            _X.loc[:, "monthly_income"] = _X["NETMONTHLYINCOME"].replace(0.0, np.nan)
             median_inc = X_train["monthly_income"].median() # strict training median
-            _X["monthly_income"] = _X["monthly_income"].fillna(median_inc if not np.isnan(median_inc) else 25000.0)
+            _X.loc[:, "monthly_income"] = _X["monthly_income"].fillna(median_inc if not np.isnan(median_inc) else 25000.0)
         else:
             if "Credit_Score" in df.columns:
                 valid_score = _X["Credit_Score"].replace(0.0, 600.0).clip(lower=300.0, upper=900.0)
@@ -206,15 +212,15 @@ def load_and_preprocess_cibil(test_size: float = 0.2, random_state: int = 42):
                 base_income = 35000.0 * np.ones(len(_X))
             
             income_noise = np.random.normal(0, 3000, size=len(_X))
-            _X["monthly_income"] = np.round(np.clip(base_income + income_noise, 10000.0, 200000.0), 2)
+            _X.loc[:, "monthly_income"] = np.round(np.clip(base_income + income_noise, 10000.0, 200000.0), 2)
 
-        _X["disposable_income"] = np.round(_X["monthly_income"] * np.random.uniform(0.20, 0.40, size=len(_X)), 2)
-        _X["savings_balance"] = np.round(np.clip(_X["monthly_income"] * np.random.uniform(0.10, 1.50, size=len(_X)), 1000.0, 500000.0), 2)
-        _X["duration_months"] = 36.0
+        _X.loc[:, "disposable_income"] = np.round(_X["monthly_income"] * np.random.uniform(0.20, 0.40, size=len(_X)), 2)
+        _X.loc[:, "savings_balance"] = np.round(np.clip(_X["monthly_income"] * np.random.uniform(0.10, 1.50, size=len(_X)), 1000.0, 500000.0), 2)
+        _X.loc[:, "duration_months"] = 36.0
 
         if "CC_utilization" in _X.columns:
-            _X["revolving_debt"] = np.round(_X["CC_utilization"] * 100.0, 2)
+            _X.loc[:, "revolving_debt"] = np.round(_X["CC_utilization"] * 100.0, 2)
         else:
-            _X["revolving_debt"] = 5000.0
+            _X.loc[:, "revolving_debt"] = 5000.0
 
     return X_train, X_test, y_train, y_test, A_train, A_test
