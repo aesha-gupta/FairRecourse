@@ -54,8 +54,8 @@ An exhaustive rule-engine that acts as a deterministic referee against optimizat
 * **Monotonicity:** Prevents adverse risk metrics from increasing and positive quality metrics from decreasing.
 * **Discrete Logic:** Ensures trade counts and binary flags remain physically valid.
 
-### 2. Exposure Scaling (Statutory Counter-Offers)
-When a borrower is deeply embedded in risk, altering continuous features is a mathematical dead-end (The Optimization Deadlock). Instead of issuing a hard rejection, FairRecourse dynamically computes the scale-invariant ratio $\alpha^* = \tau / PD_{calibrated}$ to automatically generate a **Basel III compliant facility limit haircut**. This preserves the bank's Expected Loss ($EL$) tolerance while offering the applicant a viable, reduced-exposure counter-offer.
+### 2. Exposure Scaling (Institutional Counter-Offers)
+When a borrower is deeply embedded in risk, altering continuous features is a mathematical dead-end (The Optimization Deadlock). Instead of issuing a hard rejection, FairRecourse dynamically computes the scale-invariant ratio $\alpha^* = \tau / PD_{calibrated}$ to automatically generate an **expected-loss preserving facility limit haircut**. This preserves the bank's Expected Loss ($EL$) tolerance while offering the applicant a viable, reduced-exposure counter-offer.
 
 ### 3. Temporal Solvency & Epsilon-Stability
 FairRecourse does not just output abstract feature deltas. It translates percentage utilization drops into absolute dollar amounts by dynamically inferring the applicant's credit limit (capped by retail guardrails, such as 6x monthly income). It evaluates whether the required cash-shift is feasible within a strictly enforced maximum Execution Horizon (e.g., $H \le 24$ months). Generated plans are stress-tested with stochastic Gaussian noise ($\epsilon$-stability) to ensure resilience against execution wobble.
@@ -67,18 +67,26 @@ To guarantee the validity of our benchmarks for academic peer-review, FairRecour
 
 ## 📊 Empirical Benchmarks
 
-Tested comprehensively against **German Credit** (1k), **FICO HELOC** (10k), and **CIBIL** (51k) datasets. 
+Tested comprehensively against **Statlog German Credit** ($N=1,000$, €), **FICO HELOC** ($N=10,000$, $), and **CIBIL Retail** ($N=51,336$, ₹) holdout test partitions.
 
-In our rigorous batch audit of highly marginalized applicants, subjecting standard DiCE to the PCL rule-engine revealed the extent of algorithmic hallucination:
+Across $N=670$ audited borderline adverse applicants ($PD \in [0.405, 0.500]$, operational threshold $\tau=0.40$), subjecting standard unconstrained counterfactuals (DiCE) to the Policy & Constraint Layer (PCL) rule-engine reveals that **DiCE violated at least one policy constraint for 589 of 670 applicants (87.9\%)**, generating 967 total discrete infractions (including 953 non-horizon violations on empirical credit-bureau features and 14 simulation-based horizon violations). 
 
-| Metric / Framework | DiCE (Unconstrained) | FairRecourse (Constrained) |
-| :--- | :--- | :--- |
-| **Recourse Success Rate** | 4.4% | **20.0%** |
-| **Policy Violations per Run** | Extreme | **0 (By Design)** |
-| **Counter-Offers Generated** | N/A | 100% of Infeasible Cases |
-| **Total Compliant Resolution** | 4.4% | **100.0%** |
+In contrast, FairRecourse decomposes recourse into **Borrower-Side Recourse ($S_B$)**, **Institutional Counter-Offers ($S_I$)**, and **Manual Underwriting Escalation ($S_H$)**, achieving **Exhaustive Admissible Pathway Coverage ($S_R = 100.0\%$)** within the evaluated marginal cohort:
 
-*Finding: Domain-specific grid searches over explicitly authorized financial levers are **4.5x more effective** at navigating jagged tree-model decision boundaries than general-purpose genetic algorithms.*
+| Benchmark Dimension | Baseline (Unconstrained DiCE) | Bounded DiCE | FairRecourse (Proposed) |
+| :--- | :--- | :--- | :--- |
+| **Borrower-Side Feasible Recourse ($S_B$)** | 12.1% (81/670) | 2.5% (17/670) | **6.6%** (44/670) *[100% German, 3.8% HELOC, 0.0% CIBIL]* |
+| **Institutional Counter-Offers ($S_I$)** | N/A (Terminal Denial) | N/A (Terminal Denial) | **93.4%** (626/670) *[Haircuts: 1.3%–20.0%]* |
+| **Manual Underwriting Escalation ($S_H$)** | N/A | N/A | **0.0%** (0/670) *[All haircuts $\ge 0.80$]* |
+| **Total Invariant Violations** | 967 infractions (589 applicants) | 6 infractions (6 applicants) | **0 (PCL Firewall Verified)** |
+| **Temporal Horizon ($H \le 24$ mo)**$^\dagger$ | Violations up to 269.8 mos | Violations up to 125.2 mos | **All $\le 21.1$ mos** (Mean: 1.0–4.2 mos) |
+| **$\epsilon$-Stability (3% noise)** | Not Evaluated | Not Evaluated | **$\ge 94.5\%$** survival across 20 perturbations |
+| **Total Admissible Pathway Coverage ($S_R = \sum S_k$)**$^*$ | 12.1% (81/670) | 2.5% (17/670) | **100.0% (670/670)** |
+
+$^*$*Total Admissible Pathway Coverage ($S_R = S_B + S_I + S_H$) reflects deterministic decision triage assignment within the evaluated marginal band under predefined rules (German: 34 $S_B$ + 0 $S_I$; HELOC: 10 $S_B$ + 250 $S_I$; CIBIL: 0 $S_B$ + 376 $S_I$), not an economic guarantee of loan affordability, commercial profitability, or live underwriting approval.*  
+$^\dagger$*Execution horizons are evaluated under study-defined simulation parameters ($25\%$ disposable income allocation) as conditional operational proxies, not observed bank checking account balances.*
+
+*Key Takeaway: Disaggregating recourse reveals that borrower actions alone cannot overcome immutable bureau anchors. Actionable credit governance requires coordinating borrower-side interventions with institutional risk-constrained exposure adjustments.*
 
 ---
 
