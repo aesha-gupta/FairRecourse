@@ -17,6 +17,25 @@
 \newtheorem{theorem}{Theorem}
 \newtheorem{remark}{Remark}
 
+% Global vertical spacing optimization for page budget
+\AtBeginDocument{
+  \setlength{\abovedisplayskip}{5pt plus 1pt minus 2pt}
+  \setlength{\belowdisplayskip}{5pt plus 1pt minus 2pt}
+  \setlength{\abovedisplayshortskip}{0pt plus 1pt}
+  \setlength{\belowdisplayshortskip}{3pt plus 1pt minus 1pt}
+}
+
+% Standard LaTeX list vertical spacing tightening (safe across ACM classes)
+\makeatletter
+\def\@listi{\leftmargin\leftmargini
+            \parsep 0\p@
+            \topsep 2.5\p@ \@plus 1\p@ \@minus 1\p@
+            \itemsep 1.5\p@ \@plus 0.5\p@}
+\let\@listI\@listi
+\setlength{\abovecaptionskip}{4pt plus 1pt minus 1pt}
+\setlength{\belowcaptionskip}{4pt plus 1pt minus 1pt}
+\makeatother
+
 \begin{document}
 
 \title[Beyond the Illusion of Recourse]{Beyond the Illusion of Recourse: An Auditable Dual-Pathway Architecture for Actionable Credit Governance}
@@ -157,22 +176,15 @@ Let $\mathcal{C}(x, x') \in \{0, 1\}$ denote a composite domain constraint predi
 \end{definition}
 
 \begin{definition}[Immutability Deadlock]
-An applicant $x$ experiences an \textbf{Immutability Deadlock} when no actionable modification can satisfy the approval threshold under the domain constraint predicate:
-\begin{equation}
-\mathcal{F}_B(x) = \emptyset
-\label{eq:borrower_infeasibility}
-\end{equation}
+An applicant $x$ experiences an \textbf{Immutability Deadlock} when no actionable modification can satisfy the approval threshold under the domain constraint predicate: $\mathcal{F}_B(x) = \emptyset$.
 \end{definition}
 
 \subsection{Institutional Feasible Set}
 \begin{definition}[Institutional Feasible Set]
-Let $EAD_0$ denote the requested credit facility limit. When borrower-side recourse is deadlocked ($\mathcal{F}_B(x) = \emptyset$), the institution evaluates facility restructuring:
+Let $EAD_0$ denote the requested credit facility limit. When borrower-side recourse is deadlocked ($\mathcal{F}_B(x) = \emptyset$), the institution evaluates facility restructuring $EAD' = \alpha EAD_0$ subject to preserving portfolio Expected Loss within institutional risk tolerance:
 \begin{equation}
-EAD' = \alpha EAD_0
-\end{equation}
-subject to preserving portfolio Expected Loss within institutional risk tolerance:
-\begin{equation}
-EL' = PD(x) \times LGD \times EAD' \le EL_{\max} = \tau \times LGD \times EAD_0
+EL' = PD(x) \times LGD \times (\alpha EAD_0) \le EL_{\max} = \tau \times LGD \times EAD_0
+\label{eq:institutional_el}
 \end{equation}
 The set of admissible institutional counter-offers $\mathcal{F}_I(x)$ is defined over $\alpha \in [\alpha_{\min}, 1.0]$:
 \begin{equation}
@@ -203,22 +215,22 @@ Figure~\ref{fig:architecture} illustrates the system pipeline.
 \begin{figure}[t]
 \centering
 \begin{tikzpicture}[
-    node distance=0.7cm,
-    box/.style={rectangle, draw=black!70, rounded corners=3pt, align=center, fill=blue!6, inner sep=5pt, font=\small, text width=6.2cm},
-    decision/.style={diamond, draw=black!70, aspect=2.4, align=center, fill=orange!12, inner sep=3pt, font=\small},
-    branch/.style={rectangle, draw=black!70, rounded corners=3pt, align=center, inner sep=5pt, font=\small, text width=3.0cm},
+    node distance=0.42cm,
+    box/.style={rectangle, draw=black!70, rounded corners=3pt, align=center, fill=blue!6, inner sep=3.5pt, font=\small, text width=6.0cm},
+    decision/.style={diamond, draw=black!70, aspect=2.3, align=center, fill=orange!12, inner sep=2.5pt, font=\small},
+    branch/.style={rectangle, draw=black!70, rounded corners=3pt, align=center, inner sep=4pt, font=\small, text width=2.9cm},
     arrow/.style={-Latex, thick, draw=black!80}
 ]
 % Flowchart Nodes
 \node[box] (input) {Applicant Profile $x$\\Bureau Telemetry \& Application};
 \node[box, below=of input] (model) {Risk Engine \& Platt Calibration\\$PD(x) = f(x)$};
 \node[decision, below=of model] (check) {$PD(x) > \tau$?};
-\node[box, right=0.8cm of check, text width=2.0cm, fill=green!10] (approved) {Approved\\(Standard)};
+\node[box, right=0.6cm of check, text width=1.8cm, fill=green!10] (approved) {Approved\\(Standard)};
 \node[box, below=of check] (pcl) {Policy \& Constraint Layer (PCL)\\Deterministic Invariant Referee};
 \node[decision, below=of pcl] (feas) {$\mathcal{F}_B(x) \neq \emptyset$?};
-\node[branch, below left=0.8cm and 0.1cm of feas, fill=green!8] (borrower) {\textbf{Pathway 1: Borrower}\\Action Plan $R_B(x)$\\Horizon $H \le 24$ mo};
-\node[branch, below right=0.8cm and 0.1cm of feas, fill=blue!8] (inst) {\textbf{Pathway 2: Institution}\\Exposure Scaling\\$\alpha^* = \tau / PD(x)$};
-\node[box, below=2.5cm of feas, fill=purple!6] (outcome) {Admissible Pathway Assignment\\Borrower Plan or Counter-Offer ($\alpha^* \ge 0.80$)};
+\node[branch, below left=0.5cm and 0.1cm of feas, fill=green!8] (borrower) {\textbf{Pathway 1: Borrower}\\Action Plan $R_B(x)$\\Horizon $H \le 24$ mo};
+\node[branch, below right=0.5cm and 0.1cm of feas, fill=blue!8] (inst) {\textbf{Pathway 2: Institution}\\Exposure Scaling\\$\alpha^* = \tau / PD(x)$};
+\node[box, below=1.6cm of feas, fill=purple!6] (outcome) {Admissible Pathway Assignment\\Borrower Plan or Counter-Offer ($\alpha^* \ge 0.80$)};
 \node[box, below=of outcome, fill=gray!8] (audit) {Auditable Decision Certificate\\Adverse Action Notice / Human Escalation};
 
 % Connectors
@@ -244,11 +256,7 @@ The coupled constraint set is the conjunction of all conditions that a candidate
 \end{equation}
 
 \subsubsection{Immutability Predicate ($\Phi_{\text{immut}}$)}
-Let $\mathcal{I} \subseteq \{1, \dots, d\}$ denote the index set of immutable features, encompassing protected demographic attributes (e.g., age, gender) and historical credit bureau telemetry (e.g., inquiry recency, delinquency records, trade tenure). For any candidate intervention $x'$, immutable attributes must remain unchanged:
-\begin{equation}
-\Phi_{\text{immut}}(x, x') \iff x'_j = x_j, \quad \forall j \in \mathcal{I}
-\end{equation}
-In our numerical implementation, this is evaluated as $|x'_j - x_j| \le 10^{-4}$ to accommodate floating-point representations. Any candidate perturbing an index in $\mathcal{I}$ violates the defined immutability constraint.
+Let $\mathcal{I} \subseteq \{1, \dots, d\}$ denote the index set of immutable features, encompassing protected demographic attributes (e.g., age, gender) and historical credit bureau telemetry (e.g., inquiry recency, delinquency records, trade tenure). For any candidate intervention $x'$, immutable attributes must remain unchanged: $\Phi_{\text{immut}}(x, x') \iff x'_j = x_j, \; \forall j \in \mathcal{I}$. In our numerical implementation, this is evaluated as $|x'_j - x_j| \le 10^{-4}$ to accommodate floating-point representations. Any candidate perturbing an index in $\mathcal{I}$ violates the defined immutability constraint.
 
 \subsubsection{Directional Monotonicity Predicate ($\Phi_{\text{monot}}$)}
 Let $\mathcal{M}_{\text{adverse}}$ denote the index set of financial liabilities, revolving debt balances, and utilization burdens. Let $\mathcal{M}_{\text{asset}}$ denote positive assets (e.g., liquid savings). We enforce:
@@ -355,20 +363,9 @@ All methods use the same decision threshold $\tau = 0.40$. The audited borderlin
 
 \noindent We evaluate adverse decision handling across three formally partitioned, mutually exclusive resolution states:
 \begin{enumerate}
-    \item \textbf{Borrower-Side Feasible Recourse ($S_B$):} The proportion of adverse applicants for whom an actionable, policy-compliant intervention exists within statutory horizons ($H \le H_{\max}$):
-    \begin{equation}
-        S_B = \frac{1}{|\mathcal{N}|} \sum_{i \in \mathcal{N}} \mathbb{I}\left(\mathcal{F}_B(x_i) \neq \emptyset\right)
-    \end{equation}
-    
-    \item \textbf{Institutional Counter-Offer Resolution ($S_I$):} The proportion of applicants deadlocked on borrower-side action ($\mathcal{F}_B(x_i) = \emptyset$) who receive an automated, Expected-Loss-preserving facility limit haircut within the policy floor ($\alpha^* \ge \alpha_{\min} = 0.80$):
-    \begin{equation}
-        S_I = \frac{1}{|\mathcal{N}|} \sum_{i \in \mathcal{N}} \mathbb{I}\left(\mathcal{F}_B(x_i) = \emptyset \land \mathcal{F}_I(x_i) \neq \emptyset\right)
-    \end{equation}
-
-    \item \textbf{Manual Underwriting Escalation ($S_H$):} The proportion of applicants requiring risk haircuts exceeding policy tolerance ($\alpha^* < 0.80$), routed to credit committee review:
-    \begin{equation}
-        S_H = \frac{1}{|\mathcal{N}|} \sum_{i \in \mathcal{N}} \mathbb{I}\left(\mathcal{F}_B(x_i) = \emptyset \land \mathcal{F}_I(x_i) = \emptyset\right)
-    \end{equation}
+    \item \textbf{Borrower-Side Feasible Recourse ($S_B$):} The proportion of adverse applicants for whom an actionable, policy-compliant intervention exists within statutory horizons ($H \le H_{\max}$): $S_B = \frac{1}{|\mathcal{N}|} \sum_{i \in \mathcal{N}} \mathbb{I}(\mathcal{F}_B(x_i) \neq \emptyset)$.
+    \item \textbf{Institutional Counter-Offer Resolution ($S_I$):} The proportion of applicants deadlocked on borrower-side action ($\mathcal{F}_B(x_i) = \emptyset$) who receive an automated, Expected-Loss-preserving facility limit haircut within the policy floor ($\alpha^* \ge \alpha_{\min} = 0.80$): $S_I = \frac{1}{|\mathcal{N}|} \sum_{i \in \mathcal{N}} \mathbb{I}(\mathcal{F}_B(x_i) = \emptyset \land \mathcal{F}_I(x_i) \neq \emptyset)$.
+    \item \textbf{Manual Underwriting Escalation ($S_H$):} The proportion of applicants requiring risk haircuts exceeding policy tolerance ($\alpha^* < 0.80$), routed to credit committee review: $S_H = \frac{1}{|\mathcal{N}|} \sum_{i \in \mathcal{N}} \mathbb{I}(\mathcal{F}_B(x_i) = \emptyset \land \mathcal{F}_I(x_i) = \emptyset)$.
 \end{enumerate}
 
 \noindent The \textbf{Total Admissible Pathway Coverage} is defined as $S_R = S_B + S_I + S_H$. While unconstrained optimizers achieve high nominal success through illegal or physically impossible feature mutations, FairRecourse guarantees exhaustive, auditable resolution coverage ($S_R = 100.0\%$) with zero evaluated policy breaches.
@@ -488,11 +485,7 @@ CIBIL Retail (INR) & Female & 35 & 45.10\% & 11.02\% & 11.84\% & 5.08\% \\
 In the evaluated CIBIL borderline cohort, mean haircuts were similar across the recorded gender groups (11.02\% for females vs. 10.82\% for males). In the German Credit cohort, female applicants received an average haircut of 13.24\% compared to 10.37\% for males; however, the small subgroup sample size ($N=11$ females) is statistically underpowered and should be treated as a descriptive observation rather than evidence of systematic disparity or parity. Furthermore, we explicitly emphasize that the 376 audited CIBIL applicants (35 female, 341 male) represent a highly selected marginal band near the operational decision boundary ($PD \in [0.405, 0.500]$), not a representative sample of the broader Indian retail borrowing population.
 
 \subsection{Analysis of Subgroup Haircut Variations}
-To evaluate whether haircut variations reflect algorithmic bias, we examine the functional relationship governing counter-offer sizing:
-\begin{equation}
-1 - \alpha^* = 1 - \frac{\tau}{PD(x)}
-\end{equation}
-Because the haircut is a monotonically increasing function of calibrated default risk $PD(x)$, any subgroup exhibiting a higher average predicted risk will mechanically receive a larger average facility haircut. \emph{Exposure scaling does not independently remove disparities generated by the underlying risk model; it transforms differences in calibrated $PD(x)$ into differences in facility size.} 
+To evaluate whether haircut variations reflect algorithmic bias, we examine the functional relationship governing counter-offer sizing: $1 - \alpha^* = 1 - \tau / PD(x)$. Because the haircut is a monotonically increasing function of calibrated default risk $PD(x)$, any subgroup exhibiting a higher average predicted risk will mechanically receive a larger average facility haircut. \emph{Exposure scaling does not independently remove disparities generated by the underlying risk model; it transforms differences in calibrated $PD(x)$ into differences in facility size.} 
 
 When evaluating whether haircuts constitute algorithmic down-tiering, the intervention must be compared to the operational baseline: under standard underwriting, all applicants in this marginal band face categorical rejection (a 100\% reduction). Preserving an average of 86.8\% of requested principal ($EAD^* = 0.868 \times EAD_0$) preserves credit access relative to the study's categorical-rejection baseline, while downstream loan acceptance, repayment performance, and borrower welfare remain unmeasured operational outcomes outside the scope of static counterfactual audits.
 
