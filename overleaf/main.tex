@@ -1,6 +1,6 @@
 \documentclass[manuscript,screen,review,anonymous]{acmart}
 
-\settopmatter{printacmref=false}
+\settopmatter{printacmref=false, printccs=false}
 \renewcommand\footnotetextcopyrightpermission[1]{}
 
 \usepackage{amsmath,amsfonts}
@@ -151,12 +151,7 @@ In the United States, credit decision governance is informed by the Equal Credit
 
 In the European Union, the General Data Protection Regulation (GDPR Article 22)~\cite{gdpr2016} and the European Union Artificial Intelligence Act (EU AI Act, Regulation 2024/1689, Annex III.5b)~\cite{euaiact2024} classify automated credit scoring as high-risk, emphasizing transparency, contestability, and human oversight. In India, the Reserve Bank of India (RBI) Digital Lending Directions (2022)~\cite{rbi2022digitallending} similarly emphasize auditable governance in automated credit assessment.
 
-Under Basel III/IV Internal Ratings-Based (IRB) standards~\cite{bcbs2017basel}, institutions evaluate retail credit risk through Expected Loss ($EL$):
-\begin{equation}
-EL = PD \times LGD \times EAD
-\label{eq:basel_el}
-\end{equation}
-where $PD \in [0, 1]$ is the calibrated default probability, $LGD \in [0, 1]$ is Loss Given Default, and $EAD \in \mathbb{R}^+$ is nominal Exposure at Default. When an applicant's default risk exceeds the institution's internal risk threshold $\tau$, extending the requested facility $EAD_0$ breaches risk appetite. By scaling $EAD$, institutions preserve target expected loss without requiring unilateral borrower modification.
+Under Basel III/IV Internal Ratings-Based (IRB) standards~\cite{bcbs2017basel}, institutions evaluate retail credit risk through Expected Loss: $EL = PD \times LGD \times EAD$, where $PD \in [0, 1]$ is the calibrated default probability, $LGD \in [0, 1]$ is Loss Given Default, and $EAD \in \mathbb{R}^+$ is nominal Exposure at Default. When an applicant's default risk exceeds the institution's internal risk threshold $\tau$, extending the requested facility $EAD_0$ breaches risk appetite. By scaling $EAD$, institutions preserve target expected loss without requiring unilateral borrower modification.
 
 \subsection{Identifying the Operational Gap}
 While credit-limit adjustments and loan restructuring are established lending practices in conventional manual underwriting, existing algorithmic recourse frameworks place the entire burden of intervention on changing the applicant's own attributes. Our contribution lies in formally integrating institution-controlled exposure adjustment into an automated algorithmic recourse optimization pipeline—coupling it with a deterministic borrower-feasibility test, an institutional expected-loss constraint check, and an auditable policy trail. Table~\ref{tab:literature_matrix} summarizes how FairRecourse compares with prior literature across operational desiderata.
@@ -306,10 +301,7 @@ The total nominal capital shift $\Delta \Omega(x, x')$ required to execute $x'$ 
 \Delta \Omega(x, x') = \max(0, x'_{\text{savings}} - x_{\text{savings}}) + \max(0, x_{\text{debt}} - x'_{\text{debt}}) + \sum_{j \in \mathcal{U}} \left( \frac{\max(0, x_j - x'_j)}{100} \right) \times \widehat{\text{Limit}}(x)
 \end{equation}
 
-Assuming a household cannot safely spend more than 25\% of spare monthly disposable income on debt reduction ($B_{\text{monthly}} = 0.25 \times \text{DisposableIncome}$), the required \textbf{Execution Horizon} $H(x, x')$ (in months) is:
-\begin{equation}
-H(x, x') = \max\left(1.0, \, \frac{\Delta \Omega(x, x')}{B_{\text{monthly}}(x)}\right)
-\end{equation}
+Assuming a household cannot safely spend more than 25\% of spare monthly disposable income on debt reduction ($B_{\text{monthly}} = 0.25 \times \text{DisposableIncome}$), the required \textbf{Execution Horizon} $H(x, x')$ (in months) is $H(x, x') = \max\left(1.0, \, \Delta \Omega(x, x') / B_{\text{monthly}}(x)\right)$.
 The $6\times$ monthly income ceiling and 25\% disposable income allocation ratio ($B_{\text{monthly}} = 0.25 \times \text{DisposableIncome}$) represent study-defined operational design parameters. They are informed by consumer underwriting practices to prevent imputing unrealistically inflated limits on near-zero balances and to safeguard against prescribing debt service that induces household insolvency. We do not claim these values are normative or universally representative; they define the baseline execution policy used in this study. While these baseline values reflect conservative retail lending assumptions, the PCL parameterization can be calibrated to institution-specific risk policies. We use $H_{\max} = 24$ months as the primary operational planning horizon ($\Phi_{\text{solv}}(x, x') \iff H(x, x') \le H_{\max}$) and evaluate sensitivity across alternative horizons of 6--36 months.
 
 \subsection{Robustness Under Execution Wobble ($\epsilon$-Stability)}
@@ -317,11 +309,7 @@ Because actual debt paydowns fluctuate due to unexpected expenses, we test each 
 \begin{equation}
 \tilde{x}'^{(m)}_j = x'_j + \eta_j^{(m)}, \quad \eta_j^{(m)} \sim \mathcal{N}\left(0, (0.03 |x'_j|)^2\right) \quad \forall j \in \mathcal{A}
 \end{equation}
-applied strictly to the active feature set $\mathcal{A} \subseteq \{1, \dots, d\} \setminus \mathcal{I}$ (the subset of mutable attributes altered by the proposed recourse plan) across $M=20$ stochastic realizations, while holding immutable features fixed. The stability survival rate is explicitly defined as:
-\begin{equation}
-\mathcal{R}_{\text{stab}} = \frac{1}{M} \sum_{m=1}^{M} \mathbf{1}[f(\tilde{x}'^{(m)}) \le \tau]
-\end{equation}
-We classify a plan as $\epsilon$-stable when $\mathcal{R}_{\text{stab}} \ge 0.85$. The stability parameters ($M=20$ realizations, $\sigma = 0.03 |x'_j|$, and survival threshold $\mathcal{R}_{\text{stab}} \ge 0.85$) are study-defined operational robustness criteria that simulate modest real-world execution variance to filter out fragile counterfactual recommendations located on thin decision boundaries. These values define the perturbation protocol used for comparative auditing.
+applied strictly to the active feature set $\mathcal{A} \subseteq \{1, \dots, d\} \setminus \mathcal{I}$ (the subset of mutable attributes altered by the proposed recourse plan) across $M=20$ stochastic realizations, while holding immutable features fixed. The stability survival rate is explicitly defined as $\mathcal{R}_{\text{stab}} = \frac{1}{M} \sum_{m=1}^{M} \mathbf{1}[f(\tilde{x}'^{(m)}) \le \tau]$. We classify a plan as $\epsilon$-stable when $\mathcal{R}_{\text{stab}} \ge 0.85$. The stability parameters ($M=20$ realizations, $\sigma = 0.03 |x'_j|$, and survival threshold $\mathcal{R}_{\text{stab}} \ge 0.85$) are study-defined operational robustness criteria that simulate modest real-world execution variance to filter out fragile counterfactual recommendations located on thin decision boundaries. These values define the perturbation protocol used for comparative auditing.
 
 \subsection{Expected-Loss-Constrained Exposure Scaling}
 
@@ -334,7 +322,7 @@ is the maximal exposure-scaling factor satisfying $EL_{\text{counter}} \le EL_{\
 \end{theorem}
 
 \begin{proof}[Proof Sketch]
-Substituting $EAD^* = \alpha EAD_0$ into the expected-loss constraint yields $PD(x) \times LGD \times (\alpha EAD_0) \le \tau \times LGD \times EAD_0$. Dividing both sides by the positive quantity $LGD \times EAD_0 > 0$ yields $PD(x) \alpha \le \tau$, which simplifies to $\alpha \le \tau / PD(x)$. Therefore, the maximal feasible allocation capped at 1.0 is $\alpha^* = \min(1.0, \tau / PD(x))$, ensuring $EL_{\text{counter}} \le EL_{\text{target}}$. (The complete algebraic derivation is provided in Appendix~\ref{app:proof}.)
+Dividing $PD(x) \times LGD \times (\alpha EAD_0) \le \tau \times LGD \times EAD_0$ by $LGD \times EAD_0 > 0$ yields $PD(x) \alpha \le \tau \implies \alpha \le \tau / PD(x)$. The maximal allocation capped at 1.0 is $\alpha^* = \min(1.0, \tau / PD(x))$, ensuring $EL_{\text{counter}} \le EL_{\text{target}}$ (complete derivation in Appendix~\ref{app:proof}).
 \end{proof}
 
 \begin{remark}[Scope and Model-Based Guarantee]
@@ -543,7 +531,7 @@ A critical sociotechnical consideration in automating institutional counter-offe
 \section{Conclusion}
 Generating viable algorithmic recourse requires moving beyond unconstrained mathematical distance minimization to respect legal invariants, bureau immutability, and financial realities. By formalizing the Policy and Constraint Layer (PCL), deriving cash-flow execution horizons under $\epsilon$-stability, and establishing expected-loss-constrained exposure scaling, FairRecourse closes the operational gap between theoretical post-hoc explainability and prudential credit underwriting. Across 670 audited borderline applicants spanning three sovereign credit regimes, our architecture eliminated the 87.9\% policy violation rate exhibited by standard unconstrained counterfactual optimizers, achieving 100.0\% total admissible pathway coverage ($S_R$) with zero evaluated invariant breaches.
 
-More broadly, this work reframes the sociotechnical discourse surrounding automated decision-making. True algorithmic accountability does not consist of compelling vulnerable individuals to perform impossible or fictitious behavioral adjustments to satisfy a rigid scoring model. Instead, responsible credit governance requires decision systems to recognize their own operational boundaries---transparently negotiating the distribution of adjustment burdens between individual agency and institutional flexibility. By bridging borrower recourse with auditable institutional counter-offers, FairRecourse provides a foundation for fair, transparent, and legally defensible automated lending.
+More broadly, this work reframes the sociotechnical discourse on automated decision-making. True algorithmic accountability does not compel vulnerable borrowers to perform fictitious behavioral adjustments to satisfy rigid models; responsible credit governance requires underwriting systems to transparently negotiate adjustment burdens between individual agency and institutional flexibility. By bridging actionable borrower plans with auditable exposure counter-offers, FairRecourse provides a foundation for fair, transparent, and legally defensible automated lending.
 
 \begin{acks}
 Generative AI tools (large language models) were used during the preparation of this manuscript strictly for editorial assistance, code formatting, and grammatical refinement. All underlying experimental designs, algorithmic formalizations, empirical evaluations, and analytical conclusions were developed, executed, and verified by the authors.
